@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Satellite Map Navigator</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --accent-color: #4cc9f0;
+            --light-color: #f8f9fa;
+            --dark-color: #212529;
+            --success-color: #4bb543;
+            --warning-color: #f0ad4e;
+            --danger-color: #d9534f;
+            --border-radius: 12px;
+            --box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            color: var(--dark-color);
+            background-color: #f5f7ff;
+            overflow: hidden;
+            touch-action: none;
+            height: 100vh;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            z-index: 1;
+        }
+
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 16px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: var(--transition);
+        }
+
+        .search-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: var(--border-radius);
+            font-size: 14px;
+            transition: var(--transition);
+            background-color: var(--light-color);
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+        }
+
+        .button-container {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        button i {
+            font-size: 16px;
+        }
+
+        #locate-btn {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        #locate-btn:hover {
+            background-color: var(--secondary-color);
+        }
+
+        #route-btn {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        #route-btn:hover {
+            background-color: #3a9e33;
+        }
+
+        #route-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        #clear-btn {
+            background-color: var(--danger-color);
+            color: white;
+        }
+
+        #clear-btn:hover {
+            background-color: #c9302c;
+        }
+
+        #map-toggle-btn {
+            background-color: var(--dark-color);
+            color: white;
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1000;
+            width: auto;
+            padding: 10px 15px;
+        }
+
+        #map-toggle-btn:hover {
+            background-color: #343a40;
+        }
+
+        .info-panel {
+            background-color: var(--light-color);
+            border-radius: var(--border-radius);
+            padding: 12px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--dark-color);
+        }
+
+        .route-instructions {
+            max-height: 150px;
+            overflow-y: auto;
+            padding: 8px;
+            background-color: var(--light-color);
+            border-radius: var(--border-radius);
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-color) #f1f1f1;
+        }
+
+        .route-instructions::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .route-instructions::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .route-instructions::-webkit-scrollbar-thumb {
+            background-color: var(--primary-color);
+            border-radius: 3px;
+        }
+
+        .instruction-item {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .instruction-item:last-child {
+            border-bottom: none;
+        }
+
+        .instruction-icon {
+            color: var(--primary-color);
+            font-size: 16px;
+        }
+
+        @media (min-width: 768px) {
+            .control-panel {
+                width: 380px;
+                right: auto;
+            }
+
+            .button-container {
+                flex-direction: row;
+            }
+
+            .route-instructions {
+                max-height: 250px;
+            }
+        }
+
+        /* Animation for locate button when active */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .locating {
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Custom marker styles */
+        .current-location-marker {
+            background-color: var(--primary-color);
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .destination-marker {
+            background-color: var(--danger-color);
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div id="map"></div>
+    
+    <div class="control-panel">
+        <div class="search-container">
+            <input type="text" class="search-box" id="start-input" placeholder="📍 Current location">
+            <input type="text" class="search-box" id="end-input" placeholder="🏁 Destination">
+        </div>
+        
+        <div class="button-container">
+            <button id="locate-btn">
+                <i class="fas fa-location-arrow"></i> Locate Me
+            </button>
+            <button id="route-btn" disabled>
+                <i class="fas fa-route"></i> Route
+            </button>
+            <button id="clear-btn">
+                <i class="fas fa-trash-alt"></i> Clear
+            </button>
+        </div>
+        
+        <div class="info-panel">
+            <div class="info-item">
+                <span class="info-label">Distance</span>
+                <span class="info-value" id="distance-info">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Duration</span>
+                <span class="info-value" id="time-info">-</span>
+            </div>
+        </div>
+        
+        <div class="route-instructions" id="instructions"></div>
+    </div>
+
+    <button id="map-toggle-btn">
+        <i class="fas fa-map"></i> Switch to Street Map
+    </button>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <script>
+        // Initialize map with satellite view
+        const map = L.map('map').setView([20, 0], 2);
+        
+        // Map layers
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+            maxZoom: 19
+        });
+
+        const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        });
+
+        // Add satellite layer by default
+        satelliteLayer.addTo(map);
+        let currentMapType = 'satellite';
+
+        // Map toggle button functionality
+        const mapToggleBtn = document.getElementById('map-toggle-btn');
+        mapToggleBtn.addEventListener('click', function() {
+            if (currentMapType === 'satellite') {
+                map.removeLayer(satelliteLayer);
+                streetLayer.addTo(map);
+                currentMapType = 'street';
+                mapToggleBtn.innerHTML = '<i class="fas fa-satellite"></i> Switch to Satellite';
+            } else {
+                map.removeLayer(streetLayer);
+                satelliteLayer.addTo(map);
+                currentMapType = 'satellite';
+                mapToggleBtn.innerHTML = '<i class="fas fa-map"></i> Switch to Street Map';
+            }
+        });
+
+        // Variables
+        let startMarker = null;
+        let endMarker = null;
+        let routeControl = null;
+        let currentLocation = null;
+        let watchId = null;
+
+        // Elements
+        const startInput = document.getElementById('start-input');
+        const endInput = document.getElementById('end-input');
+        const locateBtn = document.getElementById('locate-btn');
+        const routeBtn = document.getElementById('route-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const distanceInfo = document.getElementById('distance-info');
+        const timeInfo = document.getElementById('time-info');
+        const instructionsPanel = document.getElementById('instructions');
+
+        // Create custom icons
+        const currentLocationIcon = L.divIcon({
+            className: 'current-location-marker',
+            iconSize: [20, 20]
+        });
+
+        const destinationIcon = L.divIcon({
+            className: 'destination-marker',
+            iconSize: [20, 20]
+        });
+
+        // Search functionality for both inputs
+        [startInput, endInput].forEach(input => {
+            input.addEventListener('input', debounce(() => searchLocation(input), 500));
+        });
+
+        function searchLocation(inputElement) {
+            const query = inputElement.value.trim();
+            if (query.length < 3) return;
+
+            // Show loading state
+            const originalValue = inputElement.value;
+            inputElement.value = "Searching...";
+            
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        const result = data[0];
+                        const latLng = [parseFloat(result.lat), parseFloat(result.lon)];
+                        
+                        // Determine if this is start or end input
+                        const isStart = inputElement === startInput;
+                        
+                        // Remove previous marker
+                        if (isStart && startMarker) map.removeLayer(startMarker);
+                        if (!isStart && endMarker) map.removeLayer(endMarker);
+                        
+                        // Add new marker with custom icon
+                        const marker = L.marker(latLng, {
+                            draggable: true,
+                            icon: isStart ? currentLocationIcon : destinationIcon
+                        }).addTo(map)
+                        .bindPopup(`<b>${isStart ? 'Start Point' : 'Destination'}</b><br>${result.display_name}`)
+                        .openPopup();
+                        
+                        // Update position when marker is dragged
+                        marker.on('dragend', function() {
+                            updateInputFromMarker(this, isStart);
+                        });
+                        
+                        // Store reference
+                        if (isStart) {
+                            startMarker = marker;
+                            currentLocation = latLng;
+                        } else {
+                            endMarker = marker;
+                        }
+                        
+                        // Update input with full address
+                        inputElement.value = result.display_name;
+                        
+                        // If both points exist, enable route button
+                        if (startMarker && endMarker) {
+                            routeBtn.disabled = false;
+                        }
+                    } else {
+                        inputElement.value = originalValue;
+                        showToast("No results found", "warning");
+                    }
+                })
+                .catch(error => {
+                    inputElement.value = originalValue;
+                    console.error("Search error:", error);
+                    showToast("Search failed", "error");
+                });
+        }
+
+        function updateInputFromMarker(marker, isStart) {
+            const latLng = marker.getLatLng();
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latLng.lat}&lon=${latLng.lng}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.display_name) {
+                        const input = isStart ? startInput : endInput;
+                        input.value = data.display_name;
+                    }
+                });
+        }
+
+        // Locate button with enhanced UI feedback
+        locateBtn.addEventListener('click', () => {
+            if (navigator.geolocation) {
+                locateBtn.classList.add('locating');
+                locateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Locating...';
+                
+                // First clear any existing watch
+                if (watchId) navigator.geolocation.clearWatch(watchId);
+                
+                watchId = navigator.geolocation.watchPosition(
+                    position => {
+                        const latLng = [position.coords.latitude, position.coords.longitude];
+                        currentLocation = latLng;
+                        
+                        // Update button state
+                        locateBtn.classList.remove('locating');
+                        locateBtn.innerHTML = '<i class="fas fa-location-arrow"></i> Update Location';
+                        
+                        // Remove previous start marker
+                        if (startMarker) map.removeLayer(startMarker);
+                        
+                        // Add accuracy circle with better styling
+                        L.circle(latLng, {
+                            color: 'var(--primary-color)',
+                            fillColor: 'var(--primary-color)',
+                            fillOpacity: 0.2,
+                            radius: position.coords.accuracy / 2
+                        }).addTo(map);
+                        
+                        // Add start marker with custom icon
+                        startMarker = L.marker(latLng, {
+                            draggable: true,
+                            icon: currentLocationIcon
+                        }).addTo(map)
+                        .bindPopup("<b>Your Current Location</b>")
+                        .openPopup();
+                        
+                        // Update start input
+                        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latLng[0]}&lon=${latLng[1]}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.display_name) {
+                                    startInput.value = data.display_name;
+                                }
+                            });
+                        
+                        // Enable route button if destination exists
+                        if (endMarker) {
+                            routeBtn.disabled = false;
+                        }
+                        
+                        // Show success toast
+                        showToast("Location found!", "success");
+                    },
+                    error => {
+                        console.error("Geolocation error:", error);
+                        locateBtn.classList.remove('locating');
+                        locateBtn.innerHTML = '<i class="fas fa-location-arrow"></i> Locate Me';
+                        
+                        let errorMsg = "Could not get your location";
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMsg = "Location permission denied. Please enable it in your browser settings.";
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMsg = "Location information unavailable.";
+                                break;
+                            case error.TIMEOUT:
+                                errorMsg = "Location request timed out.";
+                                break;
+                        }
+                        
+                        showToast(errorMsg, "error");
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        maximumAge: 0,
+                        timeout: 10000
+                    }
+                );
+            } else {
+                showToast("Geolocation is not supported by your browser", "error");
+            }
+        });
+
+        // Route button with enhanced routing visualization
+        routeBtn.addEventListener('click', calculateRoute);
+
+        function calculateRoute() {
+            if (!startMarker || !endMarker) {
+                showToast("Please set both start and end points", "warning");
+                return;
+            }
+            
+            // Show loading state
+            routeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Calculating...';
+            routeBtn.disabled = true;
+            
+            // Remove previous route if exists
+            if (routeControl) {
+                map.removeControl(routeControl);
+            }
+            
+            // Create new route with better styling
+            routeControl = L.Routing.control({
+                waypoints: [
+                    startMarker.getLatLng(),
+                    endMarker.getLatLng()
+                ],
+                routeWhileDragging: false,
+                showAlternatives: false,
+                addWaypoints: false,
+                draggableWaypoints: false,
+                fitSelectedRoutes: true,
+                lineOptions: {
+                    styles: [
+                        {
+                            color: '#ff0000', // Red color for better visibility on satellite
+                            opacity: 0.8,
+                            weight: 6,
+                            className: 'animated-route'
+                        }
+                    ]
+                },
+                altLineOptions: {
+                    styles: [
+                        {
+                            color: '#ff0000',
+                            opacity: 0.3,
+                            weight: 4
+                        }
+                    ]
+                },
+                createMarker: function() { return null; },
+                formatter: new L.Routing.Formatter({
+                    language: 'en',
+                    units: 'metric'
+                })
+            }).addTo(map);
+            
+            // Listen for route calculation
+            routeControl.on('routesfound', function(e) {
+                const routes = e.routes;
+                const route = routes[0];
+                
+                // Update button state
+                routeBtn.innerHTML = '<i class="fas fa-route"></i> Route';
+                routeBtn.disabled = false;
+                
+                // Update distance and time with better formatting
+                const distance = (route.summary.totalDistance / 1000).toFixed(1);
+                const hours = Math.floor(route.summary.totalTime / 3600);
+                const minutes = Math.round((route.summary.totalTime % 3600) / 60);
+                
+                let durationText = '';
+                if (hours > 0) {
+                    durationText += `${hours} hr${hours > 1 ? 's' : ''} `;
+                }
+                durationText += `${minutes} min`;
+                
+                distanceInfo.textContent = `${distance} km`;
+                timeInfo.textContent = durationText;
+                
+                // Display instructions with icons
+                instructionsPanel.innerHTML = "<strong>Route Instructions:</strong>";
+                route.instructions.forEach(instruction => {
+                    const div = document.createElement('div');
+                    div.className = 'instruction-item';
+                    
+                    // Add appropriate icon based on instruction
+                    let iconClass = 'fa-arrow-right';
+                    if (instruction.text.includes('left')) iconClass = 'fa-arrow-turn-up';
+                    if (instruction.text.includes('right')) iconClass = 'fa-arrow-turn-down';
+                    if (instruction.text.includes('destination')) iconClass = 'fa-flag-checkered';
+                    
+                    div.innerHTML = `
+                        <i class="fas ${iconClass} instruction-icon"></i>
+                        <span>${instruction.text}</span>
+                    `;
+                    instructionsPanel.appendChild(div);
+                });
+                
+                // Fit bounds to show entire route with padding
+                map.fitBounds(route.coordinates, { padding: [50, 50] });
+                
+                // Show success toast
+                showToast("Route calculated successfully!", "success");
+            });
+            
+            routeControl.on('routingerror', function(e) {
+                console.error("Routing error:", e.error);
+                routeBtn.innerHTML = '<i class="fas fa-route"></i> Route';
+                routeBtn.disabled = false;
+                showToast("Could not calculate route. Please try different locations.", "error");
+            });
+        }
+
+        // Clear button with confirmation
+        clearBtn.addEventListener('click', () => {
+            // Clear markers
+            if (startMarker) map.removeLayer(startMarker);
+            if (endMarker) map.removeLayer(endMarker);
+            startMarker = null;
+            endMarker = null;
+            currentLocation = null;
+            
+            // Clear route
+            if (routeControl) {
+                map.removeControl(routeControl);
+                routeControl = null;
+            }
+            
+            // Clear inputs and info
+            startInput.value = "";
+            endInput.value = "";
+            distanceInfo.textContent = "-";
+            timeInfo.textContent = "-";
+            instructionsPanel.innerHTML = "";
+            routeBtn.disabled = true;
+            
+            // Stop geolocation watch
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            
+            // Reset locate button
+            locateBtn.classList.remove('locating');
+            locateBtn.innerHTML = '<i class="fas fa-location-arrow"></i> Locate Me';
+            
+            // Show confirmation toast
+            showToast("Map cleared", "success");
+        });
+
+        // Toast notification function
+        function showToast(message, type = "info") {
+            // In a real app, you'd want a proper toast system
+            console.log(`${type}: ${message}`);
+            // For now we'll just use alert for demonstration
+            alert(message);
+        }
+
+        // Debounce function for search
+        function debounce(func, timeout = 300) {
+            let timer;
+            return (...args) => {
+                clearTimeout(timer);
+                timer = setTimeout(() => { func.apply(this, args); }, timeout);
+            };
+        }
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+        });
+
+        // Disable route button initially
+        routeBtn.disabled = true;
+    </script>
+</body>
+</html>
